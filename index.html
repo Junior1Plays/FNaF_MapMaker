@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+
+    canvas {
+      border: 1px solid #000;
+      margin: 10px;
+      cursor: pointer;
+    }
+
+    #sidebar {
+      width: 200px;
+      padding: 10px;
+      background-color: #f0f0f0;
+    }
+
+    #preview {
+      margin-bottom: 10px;
+    }
+  </style>
+  <title>FNaF Map Maker</title>
+</head>
+<body>
+  <canvas id="myCanvas" width="400" height="400"></canvas>
+  <div id="sidebar">
+    <div id="preview"></div>
+    <label for="width">Width:</label>
+    <input type="number" id="width" value="50" oninput="updatePreview()">
+    <br>
+    <label for="height">Height:</label>
+    <input type="number" id="height" value="50" oninput="updatePreview()">
+    <br>
+    <label for="borderColor">Border Color:</label>
+    <input type="color" id="borderColor" value="#000" onchange="updateBorderColor()">
+    <br>
+    <input type="checkbox" id="gridCheckbox" onchange="toggleGrid()"> Show Grid
+    <br>
+    <button onclick="createSquare()">Create</button>
+    <br>
+    <button onclick="clearSquares()">Clear</button>
+    <br>
+    <button onclick="exportToPNG()">Export to PNG</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('myCanvas');
+    const context = canvas.getContext('2d');
+    const squares = [];
+    let previewSquare = null;
+    let borderColor = '#000';
+    let showGrid = true;
+
+    function updatePreview() {
+      const width = parseInt(document.getElementById('width').value);
+      const height = parseInt(document.getElementById('height').value);
+
+      previewSquare = { width, height };
+
+      drawPreview();
+    }
+
+    function updateBorderColor() {
+      borderColor = document.getElementById('borderColor').value;
+      drawSquares();
+    }
+
+    function toggleGrid() {
+      showGrid = document.getElementById('gridCheckbox').checked;
+      drawSquares();
+    }
+
+    function drawPreview() {
+      const previewCanvas = document.createElement('canvas');
+      const previewContext = previewCanvas.getContext('2d');
+
+      previewCanvas.width = 100;
+      previewCanvas.height = 100;
+
+      previewContext.beginPath();
+      previewContext.rect(0, 0, previewSquare.width, previewSquare.height);
+      previewContext.lineWidth = 2;
+      previewContext.strokeStyle = borderColor;
+      previewContext.stroke();
+      previewContext.closePath();
+
+      document.getElementById('preview').innerHTML = '';
+      document.getElementById('preview').appendChild(previewCanvas);
+    }
+
+    function createSquare() {
+      const width = parseInt(document.getElementById('width').value);
+      const height = parseInt(document.getElementById('height').value);
+      const x = (canvas.width - width) / 2;
+      const y = (canvas.height - height) / 2;
+
+      squares.push({ x, y, width, height });
+
+      drawSquares();
+    }
+
+    function clearSquares() {
+      squares.length = 0;
+      drawSquares();
+    }
+
+    function drawGrid() {
+      if (showGrid) {
+        const gridSize = 20;
+        context.beginPath();
+        for (let x = 0; x < canvas.width; x += gridSize) {
+          context.moveTo(x, 0);
+          context.lineTo(x, canvas.height);
+        }
+        for (let y = 0; y < canvas.height; y += gridSize) {
+          context.moveTo(0, y);
+          context.lineTo(canvas.width, y);
+        }
+        context.lineWidth = 0.5;
+        context.strokeStyle = '#ddd';
+        context.stroke();
+        context.closePath();
+      }
+    }
+
+    function drawSquares() {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+
+      squares.forEach(square => {
+        context.beginPath();
+        context.rect(square.x, square.y, square.width, square.height);
+        context.lineWidth = 2;
+        context.strokeStyle = borderColor;
+        context.stroke();
+        context.closePath();
+      });
+    }
+
+    function exportToPNG() {
+      const exportCanvas = document.createElement('canvas');
+      const exportContext = exportCanvas.getContext('2d');
+
+      exportCanvas.width = canvas.width;
+      exportCanvas.height = canvas.height;
+
+      // Desenha os quadrados no canvas de exportação
+      squares.forEach(square => {
+        exportContext.beginPath();
+        exportContext.rect(square.x, square.y, square.width, square.height);
+        exportContext.lineWidth = 2;
+        exportContext.strokeStyle = borderColor;
+        exportContext.stroke();
+        exportContext.closePath();
+      });
+
+      // Cria um link para download da imagem
+      const link = document.createElement('a');
+
+      // Converte o canvas de exportação para um URL de dados (data URL) em formato PNG
+      exportCanvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+
+        // Configuração do link para download
+        link.href = url;
+        link.download = 'export.png';
+
+        // Adiciona o link ao corpo do documento
+        document.body.appendChild(link);
+
+        // Simula um clique no link para iniciar o download
+        link.click();
+
+        // Remove o link do corpo do documento
+        document.body.removeChild(link);
+
+        // Libera o URL de dados (data URL)
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    }
+
+    let dragging = false;
+    let offsetX, offsetY, draggedIndex;
+
+    canvas.addEventListener('mousedown', (e) => {
+      const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+      const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+
+      squares.forEach((square, index) => {
+        if (
+          mouseX >= square.x &&
+          mouseX <= square.x + square.width &&
+          mouseY >= square.y &&
+          mouseY <= square.y + square.height
+        ) {
+          dragging = true;
+          offsetX = mouseX - square.x;
+          offsetY = mouseY - square.y;
+          draggedIndex = index;
+        }
+      });
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      dragging = false;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+      const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+
+      const isHovered = squares.some(square => (
+        mouseX >= square.x &&
+        mouseX <= square.x + square.width &&
+        mouseY >= square.y &&
+        mouseY <= square.y + square.height
+      ));
+
+      canvas.style.cursor = isHovered ? 'pointer' : 'default';
+
+      if (dragging) {
+        const newX = mouseX - offsetX;
+        const newY = mouseY - offsetY;
+
+        squares[draggedIndex].x = newX;
+        squares[draggedIndex].y = newY;
+
+        drawSquares();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete' && dragging) {
+        squares.splice(draggedIndex, 1);
+        dragging = false;
+        drawSquares();
+      }
+    });
+  </script>
+</body>
+</html>
